@@ -112,3 +112,61 @@ EOF
     (heredoc_block
       (heredoc_line)
       (heredoc_end))))
+
+==================
+Shell test command after line continuation
+==================
+
+RUN --mount=type=cache,target=/opt/uv/cache \
+    if [ "${A}" = "1" ] || \
+        [ "${B}" = "true" ]; then \
+        echo hit; \
+    fi
+
+---
+
+(source_file
+  (run_instruction
+    (mount_param
+      value: (mount_param_param)
+      value: (mount_param_param))
+    (line_continuation)
+    (shell_command
+      (shell_fragment)
+      (line_continuation)
+      (shell_fragment)
+      (line_continuation)
+      (shell_fragment)
+      (line_continuation)
+      (shell_fragment))))
+
+==================
+Shell command starting with test builtin
+==================
+
+RUN [ "$X" = "1" ] && echo yes
+
+---
+
+(source_file
+  (run_instruction
+    (shell_command
+      (shell_fragment))))
+
+==================
+Mount param with bare flag
+==================
+
+RUN --mount=type=bind,source=x,target=/tmp/y,ro ls -la
+
+---
+
+(source_file
+  (run_instruction
+    (mount_param
+      value: (mount_param_param)
+      value: (mount_param_param)
+      value: (mount_param_param)
+      value: (mount_param_param))
+    (shell_command
+      (shell_fragment))))

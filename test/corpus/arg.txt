@@ -38,3 +38,30 @@ ARG foo="bar"
 		default: (double_quoted_string)))
 		
 
+
+==================
+Empty default
+==================
+
+ARG FOO=
+
+---
+
+(source_file
+	(arg_instruction
+		name: (unquoted_string)))
+
+==================
+Multiple names
+==================
+
+ARG A B C=1
+
+---
+
+(source_file
+	(arg_instruction
+		name: (unquoted_string)
+		name: (unquoted_string)
+		name: (unquoted_string)
+		default: (unquoted_string)))

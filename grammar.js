@@ -150,16 +150,22 @@ module.exports = grammar({
     arg_instruction: ($) =>
       seq(
         alias(/[aA][rR][gG]/, "ARG"),
-        field("name", alias(/[a-zA-Z0-9_]+/, $.unquoted_string)),
-        optional(
+        repeat1(
           seq(
-            token.immediate("="),
-            field("default",
-                  choice(
-                    $.double_quoted_string,
-                    $.single_quoted_string,
-                    $.unquoted_string
-                  ))
+            field("name", alias(/[a-zA-Z0-9_]+/, $.unquoted_string)),
+            optional(
+              seq(
+                token.immediate("="),
+                optional(
+                  field("default",
+                        choice(
+                          $.double_quoted_string,
+                          $.single_quoted_string,
+                          $.unquoted_string
+                        ))
+                )
+              )
+            )
           )
         )
       ),
@@ -362,8 +368,12 @@ module.exports = grammar({
 
     mount_param_param: () => seq(
       token.immediate(/[^\s=,]+/),
-      token.immediate("="),
-      token.immediate(/[^\s=,]+/)
+      optional(
+        seq(
+          token.immediate("="),
+          token.immediate(/[^\s=,]+/)
+        )
+      )
     ),
 
     image_alias: ($) => seq(
@@ -397,6 +407,12 @@ module.exports = grammar({
         //
         seq($.heredoc_marker, /[ \t]*/),
         /[,=-]/,
+        // A fragment may start with `[` (e.g. the `test` builtin), as long
+        // as it isn't the beginning of an exec-form JSON array: those
+        // require the first `"` to immediately follow `[` (see
+        // json_string_array). So `[` followed by any non-quote character,
+        // or by whitespace and then anything, belongs to the shell.
+        /\[([^ \t\n"\]]|[ \t]+[^ \t\n])/,
         /[^\\\[\n#\s,=-][^\\\n<]*/,
         /\\[^\n,=-]/,
         /<[^<]/,
@@ -406,14 +422,33 @@ module.exports = grammar({
     line_continuation: () => /\\[ \t]*\n/,
     required_line_continuation: () => "\\\n",
 
+    // The first string's opening quote must immediately follow `[`.
+    // This disambiguates exec form (`RUN ["echo", "hi"]`) from a shell
+    // command starting with the `test` builtin (`RUN [ "$X" = "1" ]`).
+    // An exec-form array written with whitespace after `[` is vanishingly
+    // rare and falls back to being highlighted as a shell command.
     json_string_array: ($) =>
       seq(
         "[",
         optional(
-          seq($.json_string, repeat(seq(",", $.json_string)))
+          seq(
+            alias($._immediate_json_string, $.json_string),
+            repeat(seq(",", $.json_string))
+          )
         ),
         "]"
       ),
+
+    _immediate_json_string: ($) => seq(
+      token.immediate('"'),
+      repeat(
+        choice(
+          token.immediate(/[^"\\]+/),
+          alias($.json_escape_sequence, $.escape_sequence)
+        )
+      ),
+      '"'
+    ),
 
     // Note that JSON strings are different from the other double-quoted
     // strings. They don't support $-expansions.
